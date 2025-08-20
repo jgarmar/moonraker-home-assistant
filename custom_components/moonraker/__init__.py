@@ -22,6 +22,7 @@ from .const import (
     CONF_PORT,
     CONF_PRINTER_NAME,
     CONF_OPTION_POLLING_RATE,
+    CONF_OPTION_DISABLE_SWITCH,
     CONF_TLS,
     CONF_URL,
     DOMAIN,
@@ -127,7 +128,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         device = dev_reg.async_get(device_id)
         entry_id = device.primary_config_entry if device is not None else -1
-        await hass.data[DOMAIN][entry_id].async_send_data(
+
+        coordinator = hass.data[DOMAIN][entry_id]
+
+        # Check if integration is disabled by switch
+        if coordinator._is_integration_disabled():
+            _LOGGER.warning("send_gcode service called but integration is disabled by switch")
+            return
+
+        await coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": gcode},
         )
@@ -189,6 +198,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
+        # Check if integration is disabled by switch
+        if self._is_integration_disabled():
+            # Return empty data or previous data, depending on implementation
+            # This will cause entities to show as unavailable
+            return {}
+
         data = {}
 
         for updater in self.updaters:
@@ -207,6 +222,27 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         # --- end dynamic polling logic ---
 
         return data
+
+    def _is_integration_disabled(self) -> bool:
+        """Check if the integration is disabled by the switch."""
+        disable_switch_entity_id = self.config_entry.options.get(CONF_OPTION_DISABLE_SWITCH)
+
+        if not disable_switch_entity_id:
+            # No disable switch configured, integration is enabled
+            return False
+
+        try:
+            # Get the state of the disable switch
+            switch_state = self.hass.states.get(disable_switch_entity_id)
+            if switch_state is None:
+                # Entity doesn't exist, assume integration is enabled
+                return False
+
+            # If switch is 'off', integration should be disabled (unavailable)
+            return switch_state.state == "off"
+        except Exception:
+            # In case of any error, assume integration is enabled
+            return False
 
     async def _async_get_gcode_file_detail(self, gcode_filename):
         return_gcode = {

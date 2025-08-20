@@ -227,3 +227,91 @@ async def test_polling_interval_no_change_on_same_state(hass, get_data):
         await coordinator._async_update_data()
         assert not mock_refresh.called
         assert coordinator.update_interval == timedelta(seconds=30)
+
+
+@pytest.mark.asyncio
+async def test_disable_switch_functionality(hass, get_data):
+    """Test that disable switch makes entities unavailable."""
+    from custom_components.moonraker.const import DOMAIN, CONF_OPTION_DISABLE_SWITCH
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from homeassistant.const import STATE_ON, STATE_OFF
+    from .const import MOCK_CONFIG
+
+    # Create a mock switch entity
+    switch_entity_id = "switch.moonraker_disable"
+    hass.states.async_set(switch_entity_id, STATE_ON)
+
+    # Create config entry with disable switch option
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_DISABLE_SWITCH: switch_entity_id},
+        entry_id="test_disable_switch"
+    )
+    config_entry.add_to_hass(hass)
+    
+    # Mock the coordinator creation without actually connecting to moonraker
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        with patch("moonraker_api.MoonrakerClient.call_method", return_value={"hostname": "test"}):
+            await hass.config_entries.async_setup(config_entry.entry_id)
+            coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+            # Test when switch is ON - integration should be enabled
+            assert not coordinator._is_integration_disabled()
+
+            # Test when switch is OFF - integration should be disabled
+            hass.states.async_set(switch_entity_id, STATE_OFF)
+            assert coordinator._is_integration_disabled()
+
+            # Test when switch entity doesn't exist - integration should be enabled
+            hass.states.async_remove(switch_entity_id)
+            assert not coordinator._is_integration_disabled()
+
+
+@pytest.mark.asyncio
+async def test_disable_switch_service_behavior(hass, get_data):
+    """Test that services are blocked when disable switch is off."""
+    from custom_components.moonraker.const import DOMAIN, CONF_OPTION_DISABLE_SWITCH
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from homeassistant.const import STATE_OFF
+    from .const import MOCK_CONFIG
+
+    # Create a mock switch entity in OFF state
+    switch_entity_id = "switch.moonraker_disable"
+    hass.states.async_set(switch_entity_id, STATE_OFF)
+
+    # Create config entry with disable switch option
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_DISABLE_SWITCH: switch_entity_id},
+        entry_id="test_service_disable"
+    )
+    config_entry.add_to_hass(hass)
+    
+    # Mock the coordinator creation without actually connecting to moonraker
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        with patch("moonraker_api.MoonrakerClient.call_method", return_value={"hostname": "test"}):
+            await hass.config_entries.async_setup(config_entry.entry_id)
+
+            device_id = list(hass.data["device_registry"].devices.keys())
+
+            # Test that the service call is blocked when switch is OFF
+            with patch("moonraker_api.MoonrakerClient.call_method") as mock_call:
+                with patch("custom_components.moonraker._LOGGER.warning") as mock_warning:
+                    await hass.services.async_call(
+                        DOMAIN,
+                        "send_gcode",
+                        {
+                            "device_id": device_id,
+                            "gcode": "STATUS",
+                        },
+                        blocking=True,
+                    )
+                    await hass.async_block_till_done()
+
+                    # Service should be blocked and warning should be logged
+                    mock_call.assert_not_called()
+                    mock_warning.assert_called_once_with(
+                        "send_gcode service called but integration is disabled by switch"
+                    )

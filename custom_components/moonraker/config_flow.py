@@ -8,6 +8,7 @@ import async_timeout
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import network, slugify
 
@@ -23,6 +24,7 @@ from .const import (
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
     CONF_OPTION_THUMBNAIL_PORT,
+    CONF_OPTION_DISABLE_SWITCH,
     DOMAIN,
     TIMEOUT,
 )
@@ -198,6 +200,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_OPTION_THUMBNAIL_PORT, ""
                         ),
                     ): str,
+                    vol.Optional(
+                        CONF_OPTION_DISABLE_SWITCH,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_DISABLE_SWITCH, ""
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["switch", "input_boolean"]
+                        )
+                    ),
                 }
             ),
         )
