@@ -10,6 +10,7 @@ from custom_components.moonraker.const import (
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
     CONF_OPTION_THUMBNAIL_PORT,
+    CONF_OPTION_DISABLE_SWITCH,
 )
 
 
@@ -27,6 +28,7 @@ MOCK_OPTIONS = {
     CONF_OPTION_CAMERA_SNAPSHOT: "http://1.2.3.4/snapshot",
     CONF_OPTION_CAMERA_PORT: "1234",
     CONF_OPTION_THUMBNAIL_PORT: "5678",
+    CONF_OPTION_DISABLE_SWITCH: "switch.moonraker_disable",
 }
 
 MOCK_CONFIG_WITH_NAME = {

@@ -37,6 +37,17 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
   - Optionally enter your API key if you have required one in Moonraker.
   - Optionally specify your printer's name if you don't want to use the hostname of your moonraker installation.
 
+## Configuration Options
+
+After initial setup, you can configure additional options by going to Configuration > Integrations, finding your Moonraker integration, and clicking "Configure":
+
+- **Integration polling rate**: How often (in seconds) the integration polls for updates (default: 30 seconds)
+- **Camera Stream URL**: URL for the camera stream
+- **Camera Snapshot URL**: URL for camera snapshots  
+- **Camera Port**: Port for camera access
+- **Thumbnail Port**: Port for thumbnail access
+- **Disable Integration Switch**: Optional switch or input_boolean entity that can disable the entire integration when turned off. When this switch is off, all Moonraker entities will show as unavailable and no requests will be made to the printer.
+
 # Support
 
 You have issue with the integration, you want new sensors? Please open an Issue.
